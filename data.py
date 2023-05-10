@@ -5,7 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
+from torchvision.transforms import functional as F
 
 
 def show_resolution_image(image):
@@ -18,6 +19,7 @@ def get_image_file_names(path):
   return files
 
 
+
 class SuperResolutionDataset(Dataset):
   def __init__(self, path='datasets/T91') -> None:
     super().__init__()
@@ -28,10 +30,11 @@ class SuperResolutionDataset(Dataset):
   
   def __getitem__(self, index):
     image = cv2.imread(self.images[index], cv2.IMREAD_UNCHANGED).astype(np.float32) / 255.
-    interpolated_image = cv2.resize(image, (230, 120), interpolation=cv2.INTER_CUBIC)
+    interpolated_image = cv2.resize(image, (240, 240), interpolation=cv2.INTER_CUBIC)
     # interpolated_image = bicubic(image, self.upscale_factor, 1)  
     print(interpolated_image.shape)
-    return interpolated_image
+    tensor = F.to_tensor(interpolated_image)
+    return tensor
   
     
 if __name__ == '__main__':
