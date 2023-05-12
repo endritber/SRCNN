@@ -30,6 +30,7 @@ def trainer(args, device):
     })
   
   model = SRCNN().to(device)
+  # model.load_state_dict(torch.load(os.path.join(args.model_path, '70179_90.pth')))
   loss = nn.MSELoss()
   optimizer = optim.SGD(model.parameters(), lr=args.learning_rate)
   
@@ -49,8 +50,9 @@ def trainer(args, device):
   
   print(f'Training SRCNN with batch_size: {args.batch_size}, learning_rate: {args.learning_rate}, upscale_factor: {args.upscale_factor}, validating: {args.validation_dataset}')
   for epoch in range(args.num_epochs):
-    
     model.eval()
+    val_psnr = []
+    counter = 0
     for data in tqdm(validation_dataloader):
       inputs, labels = data
       inputs = inputs.to(device)
@@ -59,15 +61,18 @@ def trainer(args, device):
       with torch.no_grad():
         # print(inputs.shape)
         outs = model(inputs)
+  
+        PSNR = psnr(outs.squeeze(1), labels.permute(0, 3, 1, 2))
+        val_psnr.append(PSNR)
+        counter += 1
       
-    PSNR = psnr(outs.squeeze(1), labels.permute(0, 3, 1, 2))
-    print(f'{args.validation_dataset} PSNR: {PSNR:.4f}')
     if WAN:
-      wandb.log({f"{args.validation_dataset} - Validation PSNR": PSNR})
+      wandb.log({f"{args.validation_dataset} - PSNR (Validation)": sum(val_psnr)/counter})
+    print(f'{args.validation_dataset} - PSNR (Validation): {sum(val_psnr)/counter:.4f}')
     
     timer = int(time.monotonic())
     model.train()
-    # model.load_state_dict(torch.load(os.path.join(args.model_path, '63845_5.pth')))
+    
     with tqdm(total=len(train_dataset) - len(train_dataset) % 128) as t:
       t.set_description(f'epoch: {epoch+1}/{args.num_epochs}')
       
@@ -88,9 +93,9 @@ def trainer(args, device):
         t.update(len(inputs))
         
         if WAN:
-          wandb.log({'MSE': cost.item(), "PSNR": PSNR})
+          wandb.log({'Loss': cost.item(), f"{args.train_dataset} - PSNR (Training)": PSNR})
 
-    if epoch+1 % 30 == 0:
+    if (epoch+1) % 30 == 0:
       torch.save(model.state_dict(), os.path.join(args.model_path, f'{timer}_{epoch+1}.pth'))
     
  
