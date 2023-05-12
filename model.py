@@ -9,7 +9,7 @@ class SRCNN(nn.Module):
     self.encoder = nn.Sequential(
       nn.Conv2d(3, 64, kernel_size=(9, 9), padding=9//2),
       nn.ReLU(),
-      nn.Conv2d(64, 32, kernel_size=(3, 3), padding=3//2),
+      nn.Conv2d(64, 32, kernel_size=(5, 5), padding=5//2),
       nn.ReLU()
     )
     
