@@ -18,9 +18,7 @@ class SRCNN(nn.Module):
     )
     
   def forward(self, x):
-    print(x.shape)
     x = x.permute(0, 3, 1, 2)
-    print(x.shape)
     x = self.encoder(x)
     x = self.output(x)
     return x
