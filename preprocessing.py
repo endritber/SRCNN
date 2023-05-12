@@ -18,8 +18,11 @@ def get_files(path):
 def main(args):
   h5_file = h5py.File(os.path.join(PATH, args.output_path)+f'_{args.upscale_factor}.h5', 'w')
   
-  lr_patches, hr_patches = [], []
-  for file in tqdm(get_files(path=os.path.join(PATH, args.dataset))):
+  if args.validation:
+    lr_group, hr_group = h5_file.create_group('lr'), h5_file.create_group('hr')
+  else:
+    lr_patches, hr_patches = [], []
+  for i, file in enumerate(tqdm(get_files(path=os.path.join(PATH, args.dataset)))):
     src = cv2.imread(file, cv2.IMREAD_UNCHANGED).astype(np.float32)
     rgb_image = cv2.cvtColor(src, cv2.COLOR_BGR2RGB)
     H, W, _ = rgb_image.shape
@@ -28,11 +31,19 @@ def main(args):
     hr = cv2.resize(lr, dim, interpolation=cv2.INTER_CUBIC)
     lr = cv2.resize(hr, (lr.shape[1] * args.upscale_factor, lr.shape[0] * args.upscale_factor), interpolation=cv2.INTER_CUBIC)
     
-    #create patches
-    for i in range(0, lr.shape[0]-args.patch_size+1, args.stride):
-      for j in range(0, lr.shape[1]-args.patch_size+1, args.stride):
-        lr_patches.append(lr[i:i+args.patch_size, j:j+args.patch_size])
-        hr_patches.append(hr[i:i+args.patch_size, j:j+args.patch_size])
+    if args.validation:
+      lr_group.create_dataset(str(i), data=lr)
+      hr_group.create_dataset(str(i), data=hr)
+    else:
+      #create patches
+      for i in range(0, lr.shape[0]-args.patch_size+1, args.stride):
+        for j in range(0, lr.shape[1]-args.patch_size+1, args.stride):
+          lr_patches.append(lr[i:i+args.patch_size, j:j+args.patch_size])
+          hr_patches.append(hr[i:i+args.patch_size, j:j+args.patch_size])
+          
+  if args.validation:
+    h5_file.close()
+    exit()
         
   h5_file.create_dataset('lr', data=np.array(lr_patches).astype(np.float32))
   h5_file.create_dataset('hr', data=np.array(hr_patches).astype(np.float32))

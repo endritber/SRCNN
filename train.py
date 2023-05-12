@@ -6,54 +6,84 @@ from torch.utils.data import DataLoader
 
 from model import SRCNN
 from data import SuperResolutionDataset
+from utils import psnr
+
 from tqdm import tqdm
+import argparse
+import os
+import time
 
 
-def calc_psnr(img1, img2):
-    return 10. * torch.log10(1. / torch.mean((img1 - img2) ** 2))
-
-
-if __name__ == '__main__':
-  mps_available = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
-  if mps_available:
-    device = torch.device('mps')
-  else:
-    device = torch.device('cpu')
-    
+def trainer(args, device):
   model = SRCNN().to(device)
-  criterion = nn.MSELoss()
-  optimizer = optim.SGD(model.parameters(), lr=1e-2)
+  loss = nn.MSELoss()
+  optimizer = optim.SGD(model.parameters(), lr=args.learning_rate)
   
-  train_dataset = SuperResolutionDataset('./datasets/T91.h5')
+  train_dataset = SuperResolutionDataset(f'./datasets/{args.train_dataset}_{args.upscale_factor}.h5')
   train_dataloader = DataLoader(
     dataset=train_dataset,
-    batch_size=128,
-    shuffle=True,
-    # num_workers=4,
-    # pin_memory=True
+    batch_size=args.batch_size,
+    shuffle=True
   )
   
-  num_epochs=1000
-  for epoch in range(num_epochs):
+  validation_dataset = SuperResolutionDataset(f'./datasets/{args.validation_dataset}_{args.upscale_factor}.h5', validation=True)
+  validation_dataloader = DataLoader(
+    dataset=validation_dataset,
+    batch_size=1,
+  )
+  
+  
+  print(f'Training SRCNN with batch_size {args.batch_size}, learning_rate {args.learning_rate} upscale_factor {args.upscale_factor}')
+  for epoch in range(args.num_epochs):
+    print(f'Validating on {args.validation_dataset}...')
+    model.eval()
+    for data in tqdm(validation_dataloader):
+      inputs, labels = data
+      inputs = inputs.to(device)
+      labels = labels.to(device) 
+      
+      with torch.no_grad():
+        # print(inputs.shape)
+        outs = model(inputs)
+      
+    print(f'validation PSNR: {psnr(outs.squeeze(1), labels.permute(0, 3, 1, 2)):.4f}')
+    
+    timer = int(time.monotonic())
     model.train()
+    # model.load_state_dict(torch.load(os.path.join(args.model_path, '')))
     with tqdm(total=len(train_dataset) - len(train_dataset) % 128) as t:
-      t.set_description(f'epoch: {epoch+1}/{num_epochs}')
+      t.set_description(f'epoch: {epoch+1}/{args.num_epochs}')
       
       for data in train_dataloader:
+        optimizer.zero_grad()
         inputs, labels = data
-        
         inputs = inputs.to(device)
         labels = labels.to(device)
         
         outs = model(inputs)
+        cost = loss(outs.squeeze(1), labels.permute(0, 3, 1, 2))
         
-        # print(outs.shape, labels.permute(0, 3, 1, 2).shape, outs.squeeze(1).shape)
-        loss = criterion(outs.squeeze(1), labels.permute(0, 3, 1, 2))
-        
-        optimizer.zero_grad()
-        loss.backward()
+        cost.backward()
         optimizer.step()
         
-        t.set_postfix(loss=f'{loss.item():.4f}', psnr=f'{calc_psnr(outs.squeeze(1), labels.permute(0, 3, 1, 2)):.4f}')
+        t.set_postfix(MSE=f'{cost.item():.4f}', PSNR=f'{psnr(outs.squeeze(1), labels.permute(0, 3, 1, 2)):.4f}')
         t.update(len(inputs))
+
+    torch.save(model.state_dict(), os.path.join(args.model_path, f'{timer}_{epoch}.pth'))
+    
+ 
+
+if __name__ == '__main__':
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--model-path', type=str, required=True)
+  parser.add_argument('--train-dataset', type=str, required=True)
+  parser.add_argument('--validation-dataset', type=str, required=True)
+  parser.add_argument('--upscale_factor', type=int, default=3)
+  parser.add_argument('--learning-rate', type=float, default=1e-3)
+  parser.add_argument('--batch-size', type=int, default=16)
+  parser.add_argument('--num-epochs', type=int, default=300)
+  args = parser.parse_args()
+  
+  device = torch.device('mps') if hasattr(torch.backends, "mps") and torch.backends.mps.is_available() else torch.device('cpu')
+  trainer(args, device)
         
