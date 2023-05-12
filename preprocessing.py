@@ -27,7 +27,7 @@ def main(args):
     dim = ((W // args.upscale_factor) * args.upscale_factor, (H // args.upscale_factor) * args.upscale_factor)
     hr = cv2.resize(lr, dim, interpolation=cv2.INTER_CUBIC)
     lr = cv2.resize(hr, (lr.shape[1] * args.upscale_factor, lr.shape[0] * args.upscale_factor), interpolation=cv2.INTER_CUBIC)
-      
+    
     #create patches
     for i in range(0, lr.shape[0]-args.patch_size+1, args.stride):
       for j in range(0, lr.shape[1]-args.patch_size+1, args.stride):
