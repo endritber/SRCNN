@@ -1,6 +1,7 @@
 #!/usr/local/bin/python3
 import argparse
 import numpy as np
+import cv2
 
 import torch
 
@@ -19,18 +20,15 @@ def main(args, device):
 
   model.eval()
   
-  #TODO: create it with opencv
-  image = Image.open(args.image_file).convert('RGB')
-  image_width = (image.width//args.upscale_factor)*args.upscale_factor 
-  image_height = (image.height//args.upscale_factor)*args.upscale_factor 
-  image = image.resize((image_width, image_height), resample=Image.BICUBIC)
-  # image = image.resize((image.width // args.upscale_factor, image.height // args.upscale_factor), resample=Image.BICUBIC)
-  # image = image.resize((image.width * args.upscale_factor, image.height * args.upscale_factor), resample=Image.BICUBIC)
-  image.save(args.image_file.replace('.', '_bicubic_x{}.'.format(args.upscale_factor)))
-
-  image = np.array(image).astype(np.float32)
-  ycbcr = convert_rgb_to_ycbcr(image)
-
+  image = cv2.imread(args.image_file, cv2.IMREAD_UNCHANGED).astype(np.float32)
+  H, W, _ = image.shape
+  dim = ((W // args.upscale_factor) * args.upscale_factor, (H // args.upscale_factor) * args.upscale_factor)
+  image = cv2.resize(image, dim, interpolation=cv2.INTER_CUBIC)
+  image = cv2.resize(image, (image.shape[1] // args.upscale_factor, image.shape[0] // args.upscale_factor), interpolation=cv2.INTER_CUBIC)
+  image = cv2.resize(image, (image.shape[1] * args.upscale_factor, image.shape[0] * args.upscale_factor), interpolation=cv2.INTER_CUBIC) 
+  cv2.imwrite(args.image_file.replace('.', '_bicubic_x{}.'.format(args.upscale_factor)), image)
+  
+  ycbcr = convert_rgb_to_ycbcr(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
   y = ycbcr/255.
   y = torch.from_numpy(y).to(device)
   y = y.unsqueeze(0)
