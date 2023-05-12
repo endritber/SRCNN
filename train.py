@@ -22,13 +22,15 @@ if __name__ == '__main__':
     
   model = SRCNN().to(device)
   criterion = nn.MSELoss()
-  optimizer = optim.SGD(model.parameters(), lr=1e-3)
+  optimizer = optim.SGD(model.parameters(), lr=1e-2)
   
-  train_dataset = SuperResolutionDataset()
+  train_dataset = SuperResolutionDataset('./datasets/T91.h5')
   train_dataloader = DataLoader(
     dataset=train_dataset,
     batch_size=128,
-    # shuffle=True,
+    shuffle=True,
+    # num_workers=4,
+    # pin_memory=True
   )
   
   num_epochs=1000
@@ -46,12 +48,12 @@ if __name__ == '__main__':
         outs = model(inputs)
         
         # print(outs.shape, labels.permute(0, 3, 1, 2).shape, outs.squeeze(1).shape)
-        loss = criterion(outs.squeeze(1), labels.permute(0, 3, 1, 2))
+        loss = criterion(outs.squeeze(1), labels.squeeze(1).permute(0, 3, 1, 2))
         
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         
-        t.set_postfix(loss=f'{loss.item():.4f}', psnr=f'{calc_psnr(outs.squeeze(1), labels.permute(0, 3, 1, 2)):.4f}')
+        t.set_postfix(loss=f'{loss.item():.4f}', psnr=f'{calc_psnr(outs.squeeze(1), labels.squeeze(1).permute(0, 3, 1, 2)):.4f}')
         t.update(len(inputs))
         
