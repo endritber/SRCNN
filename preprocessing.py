@@ -5,43 +5,48 @@ import patchify
 from tqdm import tqdm
 
 import os
+import argparse
+import h5py
 
 
-PATH = 'datasets/T91/sub'
-SIZE = 33
-STRIDE = 1
+PATH = './datasets/'
 
-
-def get_image_files(path):
+def get_files(path):
   files = [os.path.join(path, image_name) for image_name in os.listdir(path)]
   return files
 
-
-def main(upscale_factor):
-  image_files = get_image_files(path='./datasets/T91/')
-  for image in tqdm(image_files):
-    if image.split('/')[-1] == 'sub':
-      continue
-    imread = cv2.imread(image, cv2.IMREAD_UNCHANGED).astype(np.float32)
-    patches = patchify.patchify(np.array(imread), (SIZE, SIZE, 3), STRIDE)
-    counter = 0
-    for i in range(patches.shape[0]):
-      for j in range(patches.shape[1]):
-        patch = patches[i, j, 0, :, :, :]
-        patch = cv2.cvtColor(patch, cv2.COLOR_RGB2BGR)
-        W, H, _ = patch.shape
-        HR_W, HR_H = (W//upscale_factor)*upscale_factor, (H//upscale_factor)*upscale_factor
-        lr = cv2.resize(patch, (W // upscale_factor, H // upscale_factor), interpolation=cv2.INTER_CUBIC)
-        hr = cv2.resize(lr, (HR_W, HR_H), interpolation=cv2.INTER_CUBIC)
-        lr = cv2.resize(lr, (lr.shape[1] * upscale_factor, lr.shape[0] * upscale_factor), interpolation=cv2.INTER_CUBIC) 
-        os.makedirs(os.path.join(PATH, 'lr_patches'), exist_ok=True)
-        os.makedirs(os.path.join(PATH, 'hr_patches'), exist_ok=True)
-        lr_path = f"{os.path.join(PATH, 'lr_patches', str(counter))}.jpg"
-        hr_path = f"{os.path.join(PATH, 'hr_patches', str(counter))}.jpg"
-        cv2.imwrite(lr_path, lr)
-        cv2.imwrite(hr_path, hr)
-        counter += 1
-    
+def main(args):
+  h5_file = h5py.File(os.path.join(PATH, args.output_path)+'.h5', 'w')
+  
+  lr_patches, hr_patches = [], []
+  for file in tqdm(get_files(path=os.path.join(PATH, args.dataset))):
+    src = cv2.imread(file, cv2.IMREAD_UNCHANGED).astype(np.float32)
+    rgb_image = cv2.cvtColor(src, cv2.COLOR_BGR2RGB)
+    H, W, _ = rgb_image.shape
+    lr = cv2.resize(rgb_image, (W // args.upscale_factor, H // args.upscale_factor), interpolation=cv2.INTER_CUBIC)
+    dim = ((W // args.upscale_factor) * args.upscale_factor, (H // args.upscale_factor) * args.upscale_factor)
+    hr = cv2.resize(lr, dim, interpolation=cv2.INTER_CUBIC)
+    lr = cv2.resize(hr, (lr.shape[1] * args.upscale_factor, lr.shape[0] * args.upscale_factor), interpolation=cv2.INTER_CUBIC)
+      
+    #create patches
+    for i in range(0, lr.shape[0]-args.patch_size+1, args.stride):
+      for j in range(0, lr.shape[1]-args.patch_size+1, args.stride):
+        lr_patches.append(lr[i:i+args.patch_size, j:j+args.patch_size])
+        hr_patches.append(hr[i:i+args.patch_size, j:j+args.patch_size])
+        
+  h5_file.create_dataset('lr', data=np.array(lr_patches).astype(np.float32))
+  h5_file.create_dataset('hr', data=np.array(hr_patches).astype(np.float32))
+  h5_file.close()
+   
 if __name__ == '__main__':
-  os.makedirs(PATH, exist_ok=True)
-  main(upscale_factor=2)
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--dataset', type=str, required=True)
+  parser.add_argument('--output-path', type=str, required=True)
+  parser.add_argument('--patch-size', type=int, default=33)
+  parser.add_argument('--stride', type=int, default=14)
+  parser.add_argument('--upscale-factor', type=int, default=3)
+  parser.add_argument('--validation', type=bool, default=False)
+  parser.add_argument('--testing', type=bool, default=False)
+  args = parser.parse_args()
+  
+  main(args)
