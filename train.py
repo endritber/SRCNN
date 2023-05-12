@@ -90,7 +90,7 @@ def trainer(args, device):
         if WAN:
           wandb.log({'MSE': cost.item(), "PSNR": PSNR})
 
-    if epoch+1 % 10:
+    if epoch+1 % 30 == 0:
       torch.save(model.state_dict(), os.path.join(args.model_path, f'{timer}_{epoch+1}.pth'))
     
  
