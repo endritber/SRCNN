@@ -1,4 +1,5 @@
 #!/usr/local/bin/python3
+import wandb
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -13,8 +14,21 @@ import argparse
 import os
 import time
 
+WAN = os.getenv('WAN') != None
+
 
 def trainer(args, device):
+  
+  if WAN:
+    wandb.login()
+    wandb.init(
+    project="SRCNN",
+    # Track hyperparameters and run metadata
+    config={
+        "learning_rate": args.learning_rate,
+        "epochs": args.num_epochs,
+    })
+  
   model = SRCNN().to(device)
   loss = nn.MSELoss()
   optimizer = optim.SGD(model.parameters(), lr=args.learning_rate)
@@ -33,9 +47,9 @@ def trainer(args, device):
   )
   
   
-  print(f'Training SRCNN with batch_size {args.batch_size}, learning_rate {args.learning_rate} upscale_factor {args.upscale_factor}')
+  print(f'Training SRCNN with batch_size: {args.batch_size}, learning_rate: {args.learning_rate}, upscale_factor: {args.upscale_factor}, validating: {args.validation_dataset}')
   for epoch in range(args.num_epochs):
-    print(f'Validating on {args.validation_dataset}...')
+    
     model.eval()
     for data in tqdm(validation_dataloader):
       inputs, labels = data
@@ -46,11 +60,14 @@ def trainer(args, device):
         # print(inputs.shape)
         outs = model(inputs)
       
-    print(f'validation PSNR: {psnr(outs.squeeze(1), labels.permute(0, 3, 1, 2)):.4f}')
+    PSNR = psnr(outs.squeeze(1), labels.permute(0, 3, 1, 2))
+    print(f'{args.validation_dataset} PSNR: {PSNR:.4f}')
+    if WAN:
+      wandb.log({f"{args.validation_dataset} - Validation PSNR": PSNR})
     
     timer = int(time.monotonic())
     model.train()
-    # model.load_state_dict(torch.load(os.path.join(args.model_path, '')))
+    # model.load_state_dict(torch.load(os.path.join(args.model_path, '63845_5.pth')))
     with tqdm(total=len(train_dataset) - len(train_dataset) % 128) as t:
       t.set_description(f'epoch: {epoch+1}/{args.num_epochs}')
       
@@ -66,10 +83,15 @@ def trainer(args, device):
         cost.backward()
         optimizer.step()
         
-        t.set_postfix(MSE=f'{cost.item():.4f}', PSNR=f'{psnr(outs.squeeze(1), labels.permute(0, 3, 1, 2)):.4f}')
+        PSNR = psnr(outs.squeeze(1), labels.permute(0, 3, 1, 2))
+        t.set_postfix(MSE=f'{cost.item():.4f}', PSNR=f'{PSNR:.4f}')
         t.update(len(inputs))
+        
+        if WAN:
+          wandb.log({'MSE': cost.item(), "PSNR": PSNR})
 
-    torch.save(model.state_dict(), os.path.join(args.model_path, f'{timer}_{epoch}.pth'))
+    if epoch+1 % 10:
+      torch.save(model.state_dict(), os.path.join(args.model_path, f'{timer}_{epoch+1}.pth'))
     
  
 
@@ -78,7 +100,7 @@ if __name__ == '__main__':
   parser.add_argument('--model-path', type=str, required=True)
   parser.add_argument('--train-dataset', type=str, required=True)
   parser.add_argument('--validation-dataset', type=str, required=True)
-  parser.add_argument('--upscale_factor', type=int, default=3)
+  parser.add_argument('--upscale-factor', type=int, default=3)
   parser.add_argument('--learning-rate', type=float, default=1e-3)
   parser.add_argument('--batch-size', type=int, default=16)
   parser.add_argument('--num-epochs', type=int, default=300)
