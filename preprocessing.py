@@ -16,7 +16,7 @@ def get_files(path):
   return files
 
 def main(args):
-  h5_file = h5py.File(os.path.join(PATH, args.output_path)+'.h5', 'w')
+  h5_file = h5py.File(os.path.join(PATH, args.output_path)+f'_{args.upscale_factor}.h5', 'w')
   
   lr_patches, hr_patches = [], []
   for file in tqdm(get_files(path=os.path.join(PATH, args.dataset))):
