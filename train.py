@@ -32,7 +32,7 @@ def trainer(args, device):
   model = SRCNN().to(device)
   # model.load_state_dict(torch.load(os.path.join(args.model_path, '70179_90.pth')))
   loss = nn.MSELoss()
-  optimizer = optim.SGD(model.parameters(), lr=args.learning_rate)
+  optimizer = optim.SGD(model.parameters(), lr=args.learning_rate, momentum=0.9)
   
   train_dataset = SuperResolutionDataset(f'./datasets/{args.train_dataset}_{args.upscale_factor}.h5')
   train_dataloader = DataLoader(
@@ -46,7 +46,6 @@ def trainer(args, device):
     dataset=validation_dataset,
     batch_size=1,
   )
-  
   
   print(f'Training SRCNN with batch_size: {args.batch_size}, learning_rate: {args.learning_rate}, upscale_factor: {args.upscale_factor}, validating: {args.validation_dataset}')
   for epoch in range(args.num_epochs):
