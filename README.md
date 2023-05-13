@@ -53,13 +53,13 @@ Test Example
     </tr>
     <tr>
     	<td>
-    		<center><img src="./data/zebra.bmp""></center>
+    		<center><img src="./demo/zebra.bmp""></center>
     	</td>
     	<td>
-    		<center><img src="./data/zebra_bicubic_x3.bmp"></center>
+    		<center><img src="./demo/zebra_bicubic_x3.bmp"></center>
     	</td>
     	<td>
-    		<center><img src="./data/zebra_srcnn_x3.bmp"></center>
+    		<center><img src="./demo/zebra_srcnn_x3.bmp"></center>
     	</td>
     </tr>
 </table>
