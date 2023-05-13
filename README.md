@@ -46,7 +46,7 @@ Train Example
 Test Example
 
 ```
-./test.py --weights=models/97899_60.pth --image-file=demo/zebra.bmp --upscale-factor=3
+./test.py --weights=demo/101573_210.pth --image-file=demo/zebra.bmp --upscale-factor=3
 ```
 
 
