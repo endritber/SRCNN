@@ -21,14 +21,13 @@ def main(args, device):
   model.eval()
   
   image = cv2.imread(args.image_file, cv2.IMREAD_UNCHANGED).astype(np.float32)
+  image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
   H, W, _ = image.shape
   dim = ((W // args.upscale_factor) * args.upscale_factor, (H // args.upscale_factor) * args.upscale_factor)
   image = cv2.resize(image, dim, interpolation=cv2.INTER_CUBIC)
-  image = cv2.resize(image, (image.shape[1] // args.upscale_factor, image.shape[0] // args.upscale_factor), interpolation=cv2.INTER_CUBIC)
-  image = cv2.resize(image, (image.shape[1] * args.upscale_factor, image.shape[0] * args.upscale_factor), interpolation=cv2.INTER_CUBIC) 
-  cv2.imwrite(args.image_file.replace('.', '_bicubic_x{}.'.format(args.upscale_factor)), image)
-  
-  ycbcr = convert_rgb_to_ycbcr(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+  cv2.imwrite(args.image_file.replace('.', '_bicubic_x{}.'.format(args.upscale_factor)), cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+   
+  ycbcr = convert_rgb_to_ycbcr(image)
   y = ycbcr/255.
   y = torch.from_numpy(y).to(device)
   y = y.unsqueeze(0)
@@ -41,9 +40,7 @@ def main(args, device):
 
   preds = preds.mul(255.0).cpu().numpy().squeeze(0)
   output = np.clip(convert_ycbcr_to_rgb(preds.transpose(1, 2, 0)), 0.0, 255.0).astype(np.uint8)
-  output = Image.fromarray(output)
-  output.save(args.image_file.replace('.', '_srcnn_x{}.'.format(args.upscale_factor)))
-  
+  cv2.imwrite(args.image_file.replace('.', '_srcnn_x{}.'.format(args.upscale_factor)), cv2.cvtColor(output, cv2.COLOR_RGB2BGR))  
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
