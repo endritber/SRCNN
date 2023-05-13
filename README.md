@@ -29,8 +29,8 @@ Example
 
 ## Train and Test
 
-Dataset converted to HDF5 are used in the training and testing part.
-For training T91 dataset is used, as for validation dataset Set14 is used. Create a models directory to save the models.
+Dataset converted to HDF5 are used in the training and evaluation part. For training T91 dataset is used, as for validation dataset Set14 is used.
+Create a models directory to save the models.
 
 Train Example
 
@@ -39,11 +39,16 @@ Train Example
            --upscale-factor=3 --learning-rate=1e-4 --batch-size=16 --num-epochs=1000  
 ```
 
+<img src="./demo/training.png">
+
+-----
+
 Test Example
 
 ```
 ./test.py --weights=models/97899_60.pth --image-file=demo/zebra.bmp --upscale-factor=3
 ```
+
 
 <table>
     <tr>
@@ -53,7 +58,7 @@ Test Example
     </tr>
     <tr>
     	<td>
-    		<center><img src="./demo/zebra.bmp""></center>
+    		<center><img src="./demo/zebra.bmp"></center>
     	</td>
     	<td>
     		<center><img src="./demo/zebra_bicubic_x3.bmp"></center>
