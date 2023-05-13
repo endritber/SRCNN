@@ -1,7 +1,7 @@
 #!/usr/local/bin/python3
 import numpy as np
 import cv2
-import patchify
+from utils import convert_rgb_to_ycbcr
 from tqdm import tqdm
 
 import os
@@ -24,13 +24,14 @@ def main(args):
     lr_patches, hr_patches = [], []
   for i, file in enumerate(tqdm(get_files(path=os.path.join(PATH, args.dataset)))):
     src = cv2.imread(file, cv2.IMREAD_UNCHANGED).astype(np.float32)
-    rgb_image = cv2.cvtColor(src, cv2.COLOR_BGR2RGB)
-    H, W, _ = rgb_image.shape
-    lr = cv2.resize(rgb_image, (W // args.upscale_factor, H // args.upscale_factor), interpolation=cv2.INTER_CUBIC)
-    dim = ((W // args.upscale_factor) * args.upscale_factor, (H // args.upscale_factor) * args.upscale_factor)
-    hr = cv2.resize(lr, dim, interpolation=cv2.INTER_CUBIC)
+    src = cv2.cvtColor(src, cv2.COLOR_BGR2RGB)
+    W, H = (src.shape[1] // args.upscale_factor) * args.upscale_factor, (src.shape[0] // args.upscale_factor) * args.upscale_factor 
+    
+    hr = cv2.resize(src, (W, H), interpolation=cv2.INTER_CUBIC)
+    lr = cv2.resize(hr, (W // args.upscale_factor, H // args.upscale_factor), interpolation=cv2.INTER_CUBIC)
     lr = cv2.resize(hr, (lr.shape[1] * args.upscale_factor, lr.shape[0] * args.upscale_factor), interpolation=cv2.INTER_CUBIC)
     
+    lr, hr = convert_rgb_to_ycbcr(lr), convert_rgb_to_ycbcr(hr)
     if args.validation:
       lr_group.create_dataset(str(i), data=lr)
       hr_group.create_dataset(str(i), data=hr)
